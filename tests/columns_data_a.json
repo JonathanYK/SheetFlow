@@ -1,0 +1,20 @@
+{
+    "columns": [
+        {
+            "name": "A",
+            "type": "boolean"
+        },
+        {
+            "name": "B",
+            "type": "int"
+        },
+        {
+            "name": "C",
+            "type": "double"
+        },
+        {
+            "name": "D",
+            "type": "int"
+        }
+    ]
+}

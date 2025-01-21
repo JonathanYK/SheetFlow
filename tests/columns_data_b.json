@@ -1,0 +1,16 @@
+{
+    "columns": [
+        {
+            "name": "A",
+            "type": "string"
+        },
+        {
+            "name": "B",
+            "type": "boolean"
+        },
+        {
+            "name": "C",
+            "type": "string"
+        }
+    ]
+}
