@@ -49,15 +49,15 @@ def test_create_sheet_and_update_cell_lookup_cycle_integration(client):
     sheet_creation_response = create_sheet(client, 'columns_data_b.json')
     sheet_id = sheet_creation_response.json()
 
-    create_cell(client, sheet_id, "C", "1", "lookup(“C”,1)")
+    create_cell(client, sheet_id, "C", "1", "lookup(“A”,1)")
 
-   # create_cell(client, sheet_id, "A", "1", "lookup(“B”,1)")
+    create_cell(client, sheet_id, "A", "1", "lookup(“B”,1)")
 
     cell_creation_lookup_c1_lookup_cycle_response = client.post(
         url="/cells/",
         headers={"sheet-id": sheet_id},
         json={
-            "column": "A",
+            "column": "B",
             "row": "1",
             "value": "lookup(“C”,1)"
         }
