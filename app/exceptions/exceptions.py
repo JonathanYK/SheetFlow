@@ -17,3 +17,4 @@ class CyclicLookupError(Exception):
         self.lookup_row = lookup_row
         self.message = f"Lookup ({lookup_column}, {lookup_row}) creates a cycle, which is not allowed."
         super().__init__(self.message)
+
