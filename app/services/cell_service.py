@@ -1,26 +1,24 @@
 from typing import Dict, Tuple, Any
-
-from fastapi import HTTPException
 from starlette.responses import JSONResponse
 
+from app.exceptions.exceptions import InvalidCellValueError, CyclicLookupError
 from app.services.cell_schema import CellUpdateSchema
 from app.services.sheet_values_json_encoder import SheetValuesJsonEncoder
 from app.services.sheets_service import sheets
 from bidict import bidict
+from typing import Optional
 
-# Constants for cell types
 BOOLEAN = "boolean"
 INT = "int"
 STRING = "string"
 DOUBLE = "double"
-
 
 cell_values: Dict[str, Dict[Tuple[str, str], str]] = {}
 cell_lookup_dependencies: Dict[str, bidict] = {}
 
 
 def update_cell_in_sheet(sheet_id: str, column: str, row: str, value: str) -> None:
-    """Update a cell value in the sheet."""
+
     print(f"Updating sheet {sheet_id}: row {row}, column {column}, value {value}")
 
     # Initialize the sheet if it doesn't exist
@@ -50,52 +48,21 @@ def is_value_of_cell_type(cell_type, value) -> bool:
 
 def get_cell_value_type(sheet_id, lookup_column, lookup_row) -> str:
     """Retrieve the type of cell value."""
-    if sheet_id not in cell_values:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Lookup failed, sheet id: '{sheet_id}' is not exists"
-            )
-        )
-
     return cell_values[sheet_id][(lookup_column, lookup_row)]
 
 
 async def handle_cell_value_update(sheet_id: str, cell_update: CellUpdateSchema)-> Dict[str, Any]:
     """Handle the update of a cell value, including lookups."""
-    if not sheet_id:
-        raise HTTPException(
-            status_code=404,
-            detail="Sheet ID is required and cannot be empty."
-        )
-
-    if sheet_id not in sheets:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Sheet ID: {sheet_id} does not exist."
-        )
-
-    if cell_update.column not in sheets[sheet_id]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Column '{cell_update.column}' does not exist in sheet with ID '{sheet_id}'."
-        )
 
     # Handle lookup
     if cell_update.value.startswith("lookup("):
+        await remove_lookup_value_if_exists(cell_update.column, cell_update.row, sheet_id)
         await handle_lookup_value(cell_update, sheet_id)
 
     else:
         # validate cell value type
         if not is_value_of_cell_type(sheets[sheet_id][cell_update.column], cell_update.value):
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    f"Invalid value for column '{cell_update.column}'. "
-                    f"Expected type: '{sheets[sheet_id][cell_update.column]}', "
-                    f"but received: '{cell_update.value}'."
-                )
-            )
+            raise InvalidCellValueError(cell_update.column, sheets[sheet_id][cell_update.column], cell_update.value)
 
         update_cell_in_sheet(
             sheet_id=sheet_id,
@@ -104,24 +71,22 @@ async def handle_cell_value_update(sheet_id: str, cell_update: CellUpdateSchema)
             value=cell_update.value,
         )
 
-    return {"message": "Cell updated successfully.", "sheet_id": sheet_id, "cell_update": cell_update.dict()}
+    return {"message": "Cell updated successfully.", "sheet_id": sheet_id, "cell_update": cell_update.model_dump()}
 
 
-def check_cycle(lookup_column: str, lookup_row: str, cell_update: CellUpdateSchema, sheet_id: str) -> None:
+def check_cycle(lookup_column: str, lookup_row: str, cell_column, cell_row, sheet_id: str) -> Optional[tuple[str, str]]:
     """Check for cycles in lookup dependencies."""
-    curr_cell_column, curr_cell_row = cell_update.column, cell_update.row
-    if sheet_id in cell_lookup_dependencies and (curr_cell_column, curr_cell_row) in cell_lookup_dependencies[sheet_id].inv:
-        while (curr_cell_column, curr_cell_row) in cell_lookup_dependencies[sheet_id].inv:
-            if (lookup_column, lookup_row) == cell_lookup_dependencies[sheet_id].inv[(curr_cell_column, curr_cell_row)]:
-                raise HTTPException(
-                    status_code=500,
-                    detail=(
-                        f"Lookup ( {lookup_column}, {lookup_row} ) creates cycle, that are not allowed."
-                    )
-                )
+    if lookup_column == cell_column and lookup_row == cell_row:
+        raise CyclicLookupError(lookup_column, lookup_row)
 
-            else:
-                (curr_cell_column, curr_cell_row) = cell_lookup_dependencies[sheet_id].inv[(curr_cell_column, curr_cell_row)]
+    if sheet_id in cell_lookup_dependencies and (cell_column, cell_row) in cell_lookup_dependencies[sheet_id].inv:
+        if (lookup_column, lookup_row) in cell_lookup_dependencies[sheet_id] or (lookup_column == cell_column and lookup_row == cell_row):
+            raise CyclicLookupError(lookup_column, lookup_row)
+
+
+async def remove_lookup_value_if_exists(cell_column: str, cell_row: str, sheet_id: str):
+    if sheet_id in cell_values and (cell_column, cell_row) in cell_values[sheet_id]:
+        del cell_values[sheet_id][(cell_column, cell_row)]
 
 
 async def handle_lookup_value(cell_update: CellUpdateSchema, sheet_id: str) -> None:
@@ -130,8 +95,8 @@ async def handle_lookup_value(cell_update: CellUpdateSchema, sheet_id: str) -> N
     lookup_column, lookup_row = inside_brackets.split(",")
     lookup_column = lookup_column.strip('“”')
 
-    # check cycles, if cycle throw exception, if not -> continue
-    check_cycle(lookup_column, lookup_row, cell_update, sheet_id)
+    check_cycle(lookup_column, lookup_row, cell_update.column, cell_update.row, sheet_id)
+
     if sheet_id not in cell_lookup_dependencies:
         cell_lookup_dependencies[sheet_id] = bidict()
 
@@ -140,7 +105,6 @@ async def handle_lookup_value(cell_update: CellUpdateSchema, sheet_id: str) -> N
     if (lookup_column, lookup_row) in cell_lookup_dependencies[sheet_id].inv:
         del cell_lookup_dependencies[sheet_id].inv[(lookup_column, lookup_row)]
     cell_lookup_dependencies[sheet_id][(cell_update.column, cell_update.row)] = (lookup_column, lookup_row)
-
 
 
 def handle_lookup_values(sheet_id: str) -> Dict[Tuple[str, str], str]:
@@ -158,14 +122,10 @@ def handle_lookup_values(sheet_id: str) -> Dict[Tuple[str, str], str]:
 
 async def get_sheet_cells(sheet_id: str) -> JSONResponse:
     """Get all cells of a sheet, resolving lookups."""
-    if sheet_id not in cell_values:
 
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"Sheet with id: '{sheet_id}' not found."
-            )
-        )
-    cell_values_with_lookup = handle_lookup_values(sheet_id)
+    if not cell_lookup_dependencies or not cell_lookup_dependencies[sheet_id]:
+        cell_values_with_lookup = cell_values[sheet_id]
+    else:
+        cell_values_with_lookup = handle_lookup_values(sheet_id)
     return JSONResponse(content=SheetValuesJsonEncoder.encode(cell_values_with_lookup))
 

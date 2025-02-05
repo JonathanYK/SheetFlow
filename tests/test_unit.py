@@ -8,7 +8,9 @@ from app.services.cell_service import (
     handle_lookup_values, cell_values, cell_lookup_dependencies,
 )
 
+
 def test_update_cell_in_sheet():
+    """Tests updating a cell in a sheet."""
     sheet_id = "test_sheet"
     column, row, value = "A", "1", "42"
     update_cell_in_sheet(sheet_id, column, row, value)
@@ -49,3 +51,4 @@ def test_handle_lookup_values():
 
     updated_values = handle_lookup_values(sheet_id)
     assert updated_values[("B", "2")] == "42"
+
