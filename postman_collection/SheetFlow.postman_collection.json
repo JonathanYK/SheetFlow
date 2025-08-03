@@ -1,0 +1,129 @@
+{
+	"info": {
+		"_postman_id": "f402a0c5-69e1-43f1-b8a0-32415c4caf49",
+		"name": "SheetFlow",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "19301402"
+	},
+	"item": [
+		{
+			"name": "get sheet by id",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:8000/sheets/?sheet_id=6a3028c3-22c0-4d18-bdac-c50f2712a9fee1",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"sheets",
+						""
+					],
+					"query": [
+						{
+							"key": "sheet_id",
+							"value": "6a3028c3-22c0-4d18-bdac-c50f2712a9fee1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "post new sheet",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"columns\": [\n    {\n      \"name\": \"A\",\n      \"type\": \"boolean\"\n    },\n    {\n      \"name\": \"B\",\n      \"type\": \"int\"\n    },\n    {\n      \"name\": \"C\",\n      \"type\": \"double\"\n    },\n    {\n      \"name\": \"D\",\n      \"type\": \"int\"\n    }\n  ]\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8000/sheets/",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"sheets",
+						""
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "set cell value",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "sheet_id",
+						"value": "81354914-1387-4740-a312-71e54d634895",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"column\": \"A\",\n    \"row\": \"100\",\n    \"value\": \"500\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8000/cells/?sheet_id=81354914-1387-4740-a312-71e54d634895",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"cells",
+						""
+					],
+					"query": [
+						{
+							"key": "sheet_id",
+							"value": "81354914-1387-4740-a312-71e54d634895"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get all cells of specific sheet",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "localhost:8000/cells/?sheet_id=44",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"cells",
+						""
+					],
+					"query": [
+						{
+							"key": "sheet_id",
+							"value": "44"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
+
